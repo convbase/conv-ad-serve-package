@@ -41,8 +41,48 @@
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 200) {
+                    var adData = JSON.parse(xhr.responseText);
+                    var html_ad;
+                    if (adData.ad_format == 'image') {
+                        html_ad = `<a href="${adData.url}"><img src="${adData.image}" alt="${adData.title}"></a>`;
+                    } else if (adData.ad_format == 'text') {
+                        html_ad = `<a href="${adData.url}">${adData.title}</a>`;
+                    } else if (adData.ad_format == 'video') {
+                        html_ad = `
+                            <div>
+                                <video width="100%" height="100%" controls>
+                                    <source src="${adData.video_url}" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                                <a href="${adData.url}">Learn more</a>
+                            </div>
+                        `;
+                    } else if (adData.ad_format == 'popup') {
+                        html_ad = `
+                            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
+                                <div style="background-color: #fff; padding: 20px; border: 1px solid #ddd;">
+                                    <h2>${adData.title}</h2>
+                                    <p>${adData.description}</p>
+                                    <a href="${adData.url}">Learn more</a>
+                                    <button onclick="this.parentNode.parentNode.removeChild(this.parentNode);">Close</button>
+                                </div>
+                            </div>
+                        `;
+                    } else if (adData.ad_format == 'rich_media') {
+                        html_ad = `
+                            <div>
+                                <div style="background-image: url(${adData.background_image}); background-size: cover; height: 300px; width: 300px;">
+                                    <h2>${adData.title}</h2>
+                                    <p>${adData.description}</p>
+                                    <a href="${adData.url}">Learn more</a>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        html_ad = `<p>Unknown ad format: ${adData.ad_format}</p>`;
+                    }
                     var adContainer = document.getElementById(adContainerId);
-                    adContainer.innerHTML = xhr.responseText;
+                    adContainer.innerHTML = html_ad;
                     attachAdClickListener(adContainer);
                 } else {
                     console.error('Failed to load ad:', xhr.status, xhr.statusText);
@@ -52,6 +92,7 @@
         };
         xhr.send(JSON.stringify(userData));
     }
+
 
     function attachAdClickListener(adContainer) {
         adContainer.addEventListener('click', function(event) {
