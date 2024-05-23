@@ -39,14 +39,7 @@
         xhr.open('POST', adServerUrl, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    document.getElementById(adContainerId).innerHTML = xhr.responseText;
-                } else {
-                    console.error('Failed to load ad:', xhr.status, xhr.statusText);
-                    document.getElementById(adContainerId).innerHTML = '<p>Ad failed to load.</p>';
-                }
-            }
+            document.getElementById(adContainerId).innerHTML = xhr.responseText;  
         };
         xhr.send(JSON.stringify(userData));
     }
