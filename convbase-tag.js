@@ -41,9 +41,9 @@
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 200) {
-                    var adData = JSON.parse(xhr.responseText);
+                    var adData = JSON.parse(xhr.responseText.ad);
                     console.log("adData: ", adData);
-                    console.log("JSON.parse: ", JSON.parse(xhr));
+                    console.log("JSON.parse: ", JSON.parse(xhr.responseText.ad));
                     var html_ad;
                     if (adData.ad_format == 'image') {
                         html_ad = `<a href="${adData.url}"><img src="${adData.image}" alt="${adData.title}"></a>`;
