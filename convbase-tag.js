@@ -42,6 +42,8 @@
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 200) {
                     var adData = JSON.parse(xhr.responseText);
+                    console.log("adData: ", adData);
+                    console.log("JSON.parse: ", JSON.parse(xhr));
                     var html_ad;
                     if (adData.ad_format == 'image') {
                         html_ad = `<a href="${adData.url}"><img src="${adData.image}" alt="${adData.title}"></a>`;
