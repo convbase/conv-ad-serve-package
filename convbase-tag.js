@@ -1,6 +1,6 @@
 (function() {
     var script = document.currentScript;
-    var adServerUrl = "http://127.0.0.1:5000/getAd";
+    var adServerUrl = "http://127.0.0.1:5000/get-ad";
     var adContainerId = script.getAttribute('data-ad-container-id');
     var hash = script.getAttribute('data-hash');
     
