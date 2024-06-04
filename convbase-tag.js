@@ -1,6 +1,6 @@
-(function() {
+  (function() {
     var script = document.currentScript;
-    var adServerUrl = "http://127.0.0.1:5000/get-ad";
+    var adServerUrl = "http://127.0.0.1:5000";
     var adContainerId = script.getAttribute('data-ad-container-id');
     var hash = script.getAttribute('data-hash');
     
@@ -33,34 +33,37 @@
       xhr.send();
     }
 
-    function loadAd(userData) {
-      scriptExecuted = true;
-      fetch(adServerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      })
-      .then(response => response.json())
-      .then(adData => {
-        console.log("adData: ", adData);
+    async function loadAd(userData) {
+      try {
+        const response = await fetch(adServerUrl + "/get-ad", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
+        const adData = await response.json();
         adData.forEach((ad, index) => {
           const adContainers = document.querySelectorAll('.ad-container');
           const adContainer = adContainers[index];
-          const html_ad = getAdHtml(ad);
-          adContainer.innerHTML = html_ad;
-          attachAdClickListener(adContainer);
+          if (adContainer) {
+            const html_ad = getAdHtml(ad);
+            adContainer.innerHTML = html_ad;
+            // Store the ad ID in the adData object
+            ad.adId = ad.id;
+            attachAdClickListener(adContainer, ad);
+          } else {
+            console.error(`No ad container found for ad at index ${index}`);
+          }
         });
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Failed to load ad:', error);
-        document.querySelectorAll('.ad-container').innerHTML = "<p>Failed to load ad</p>";
-      });
+      }
     }
+
 
     // 
     function getAdHtml(ad) {
       if (ad.ad_format === 'image') {
-            return `<a href="${ad.url}"><img src="${ad.image}" style="width: 100%; height: 100%; object-fit: contain;" alt="${ad.title}"></a>`;
+            return `<a href="${ad.url}" target="_blank"><img src="${ad.image}" style="width: 100%; height: 100%; object-fit: contain;" alt="${ad.title}"></a>`;
           } else if (ad.ad_format === 'text') {
             return `<a href="${ad.url}">${ad.title}</a>`;
           } else if (ad.ad_format === 'video') {
@@ -99,12 +102,12 @@
           }
     }
 
-
-    function attachAdClickListener(adContainer) {
+    function attachAdClickListener(adContainer, adData) {
       adContainer.addEventListener('click', function(event) {
+        console.log("AD DATA: ", adData);
         var adClickData = {
           eventType: 'adClick',
-          adId: adContainerId,
+          ad: adData,
           clickedElement: event.target.tagName,
           timestamp: new Date().toISOString()
         };
@@ -125,6 +128,7 @@
       };
       xhr.send(JSON.stringify(adClickData));
     }
+
 
     function collectAndLoadAd() {
       var browserInfo = getBrowserInfo();
