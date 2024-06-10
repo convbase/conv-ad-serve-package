@@ -4,7 +4,6 @@
       var adContainerId = script.getAttribute('data-ad-container-id');
       var hash = script.getAttribute('data-hash');
       
-
       function getBrowserInfo() {
         return {
           userAgent: navigator.userAgent,
@@ -48,6 +47,7 @@
             let numberOfAdsLoaded = 0;
             for (const ad of adData) {
               const adContainers = document.querySelectorAll('.ad-container');
+              console.log(adContainers);
               const adContainer = adContainers[adData.indexOf(ad)];
               if (adContainer) {
                 const html_ad = getAdHtml(ad);
@@ -82,10 +82,6 @@
         }
       }
 
-
-
-
-      // 
       function getAdHtml(ad) {
         if (ad.ad_format === 'image') {
           return `<a href="${ad.url}" target="_blank"><img src="${ad.image}" style="width: 100%; height: 100%; object-fit: contain;" alt="${ad.title}"></a>`;
@@ -225,7 +221,6 @@
         }
       }
 
-
       async function collectAndLoadAd() {
         var browserInfo = getBrowserInfo();
         getISOCode(async function (countryCode) {
@@ -234,7 +229,23 @@
             isoCode: countryCode,
             hash: hash
           };
-          const numOfAds = await loadAd(userData);
+          
+          let numOfAds;
+          // Create a mutation observer to wait for .ad-container elements
+          const observer = new MutationObserver(async () => {
+            const adContainers = document.querySelectorAll('.ad-container');
+            if (adContainers.length > 0) {
+              observer.disconnect(); // Stop observing
+              numOfAds = await loadAd(userData); // Load ads now that containers are available
+            }
+          });
+
+          // Configure the observer to watch for changes to the document body
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          })
+
           // Get website by URL
           const websiteUrl = new URL(window.location.href).origin;
           getWebsiteByURL(websiteUrl).then(website => {
