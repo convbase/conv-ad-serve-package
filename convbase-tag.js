@@ -42,8 +42,7 @@ function getISOCode(callback) {
 }
 
 async function loadAd(userData) {
-  const adContainers = document.querySelectorAll('[data-ad-container]'); // Initialize adContainers here
-  console.log("Load Ad containers: ",adContainers)
+  const adContainers = document.querySelectorAll("[data-ad-container]"); // Initialize adContainers here
   if (adContainers.length > 0) {
     const currentUrl = new URL(window.location.href).origin;
     const website = await getWebsiteByURL(currentUrl);
@@ -57,48 +56,43 @@ async function loadAd(userData) {
         const adData = await response.json();
         let numberOfAdsLoaded = 0;
         for (let i = 0; i < adContainers.length; i++) {
-            let ad = adData[i];
-            const adContainer = adContainers[i];
-            if (adContainer) {
-              if(!ad) {
-                ad = adData[i - 1]
-              }
-              console.log("inserting html ad: ", ad);
-              const html_ad = getAdHtml(ad);
-              adContainer.innerHTML = html_ad;
-              console.log(adContainer)
-              // Store the ad ID in the adData object
-              ad.adId = ad.id;
-              numberOfAdsLoaded++;
-              try {
-                const response = await fetch(
-                  adServerUrl + "/ad-impression",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      advertisement_id: ad.adId,
-                      website_id: website.id,
-                    }),
-                  }
-                );
-                const result = await response.json();
-                if (result.error) {
-                  console.error(
-                    `Error updating ad metrics: ${result.error}`
-                  );
-                } else {
-                  console.log("Ad impression recorded successfully");
-                }
-              } catch (error) {
-                console.error("Failed to update ad metrics:", error);
-              }
-              attachAdClickListener(adContainer, ad);
-            } else {
-              console.error(`No ad container found at index ${i}`);
+          let ad = adData[i];
+          const adContainer = adContainers[i];
+          if (adContainer) {
+            if (!ad) {
+              ad = adData[i - 1];
             }
+            const html_ad = getAdHtml(ad);
+            adContainer.innerHTML = html_ad;
+            // Store the ad ID in the adData object
+            ad.adId = ad.id;
+            numberOfAdsLoaded++;
+            try {
+              const response = await fetch(
+                adServerUrl + "/ad-impression",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    advertisement_id: ad.adId,
+                    website_id: website.id,
+                  }),
+                }
+              );
+              const result = await response.json();
+              if (result.error) {
+                console.error(
+                  `Error updating ad metrics: ${result.error}`
+                );
+              }
+            } catch (error) {
+              console.error("Failed to update ad metrics:", error);
+            }
+            attachAdClickListener(adContainer, ad);
+          } else {
+            console.error(`No ad container found at index ${i}`);
+          }
         }
-        // console.log("before return")
         return numberOfAdsLoaded;
       } catch (error) {
         console.error("Failed to load ad:", error);
@@ -106,8 +100,6 @@ async function loadAd(userData) {
     }
   }
 }
-
-
 
 async function collectAndLoadAd() {
   var browserInfo = getBrowserInfo();
@@ -130,7 +122,8 @@ async function collectAndLoadAd() {
       const profile_id = website.profile_id;
       const date = new Date().toISOString().split("T")[0];
       // Check if website statistics already exists for today
-      const websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
+      const websiteStatistics =
+        await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
       if (websiteStatistics) {
         // Update existing website statistics
         websiteStatistics.page_views += 1;
@@ -157,8 +150,6 @@ async function collectAndLoadAd() {
     }
   });
 }
-
-
 
 function getAdHtml(ad) {
   if (ad.ad_format === "image") {
@@ -225,7 +216,6 @@ function sendAdClickData(adClickData) {
         body: JSON.stringify(adClickData),
       })
         .then((response) => response.json())
-        .then((data) => console.log(data.message))
         .catch((error) =>
           console.error("Failed to send ad click data:", error)
         );
@@ -304,9 +294,7 @@ async function saveWebsiteStatistics(websiteStatistics) {
         body: JSON.stringify(websiteStatistics),
       }
     );
-    if (response.ok) {
-      console.log("Website statistics saved successfully");
-    } else {
+    if (response.error) {
       console.error(
         "Failed to save website statistics:",
         response.status,
