@@ -3,6 +3,9 @@ var script = document.currentScript;
 var adServerUrl = "http://127.0.0.1:5000";
 var adContainerId = script.getAttribute('data-ad-container-id');
 var hash = script.getAttribute('data-hash');
+const CACHE_KEY = 'cachedAds';
+const CACHE_TIMESTAMP_KEY = 'cachedAdsTimestamp';
+const CACHE_EXPIRATION_MS = 3600000; // 1 hour
 
 function getBrowserInfo() {
   return {
@@ -17,7 +20,7 @@ function getBrowserInfo() {
 }
 
 function getISOCode(callback) {
-  var xhr = new XMLHttpRequest();
+  const xhr = new XMLHttpRequest();
   xhr.open(
     "GET",
     "https://api.ipgeolocation.io/ipgeo?apiKey=b241516d57d94b4ca206ed8656a81155",
@@ -26,7 +29,7 @@ function getISOCode(callback) {
   xhr.onreadystatechange = function () {
     if (xhr.readyState === XMLHttpRequest.DONE) {
       if (xhr.status === 200) {
-        var response = JSON.parse(xhr.responseText);
+        const response = JSON.parse(xhr.responseText);
         callback(response.country_code2); // Assuming the API returns the country code in this field
       } else {
         console.error(
@@ -41,19 +44,45 @@ function getISOCode(callback) {
   xhr.send();
 }
 
+function getCachedAds() {
+  const cachedAds = localStorage.getItem(CACHE_KEY);
+  const cacheTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+  if (cachedAds && cacheTimestamp) {
+    const now = Date.now();
+    const cacheAge = now - cacheTimestamp;
+    if (cacheAge < CACHE_EXPIRATION_MS) {
+      return JSON.parse(cachedAds);
+    }
+  }
+  return null;
+}
+
+function setCachedAds(ads) {
+  localStorage.setItem(CACHE_KEY, JSON.stringify(ads));
+  localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now());
+}
+
 async function loadAd(userData) {
-  const adContainers = document.querySelectorAll("[data-ad-container]"); // Initialize adContainers here
+  let adContainers = document.querySelectorAll("[data-ad-container]");
   if (adContainers.length > 0) {
     const currentUrl = new URL(window.location.href).origin;
     const website = await getWebsiteByURL(currentUrl);
     if (website) {
-      try {
-        const response = await fetch(adServerUrl + "/get-ad", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(userData),
-        });
-        const adData = await response.json();
+      let adData = getCachedAds();
+      if (!adData) {
+        try {
+          const response = await fetch(adServerUrl + "/get-ad", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(userData),
+          });
+          adData = await response.json();
+          setCachedAds(adData);
+        } catch (error) {
+          console.error("Failed to load ad:", error);
+        }
+      }
+      if (adData) {
         let numberOfAdsLoaded = 0;
         for (let i = 0; i < adContainers.length; i++) {
           let ad = adData[i];
@@ -64,7 +93,6 @@ async function loadAd(userData) {
             }
             const html_ad = getAdHtml(ad);
             adContainer.innerHTML = html_ad;
-            // Store the ad ID in the adData object
             ad.adId = ad.id;
             numberOfAdsLoaded++;
             try {
@@ -81,9 +109,7 @@ async function loadAd(userData) {
               );
               const result = await response.json();
               if (result.error) {
-                console.error(
-                  `Error updating ad metrics: ${result.error}`
-                );
+                console.error(`Error updating ad metrics: ${result.error}`);
               }
             } catch (error) {
               console.error("Failed to update ad metrics:", error);
@@ -94,45 +120,40 @@ async function loadAd(userData) {
           }
         }
         return numberOfAdsLoaded;
-      } catch (error) {
-        console.error("Failed to load ad:", error);
       }
     }
   }
 }
 
 async function collectAndLoadAd() {
-  var browserInfo = getBrowserInfo();
+  let browserInfo = getBrowserInfo();
   let numOfAds;
 
   getISOCode(async function (countryCode) {
-    var userData = {
+    let userData = {
       browserInfo: browserInfo,
       isoCode: countryCode,
       hash: hash,
     };
 
+    observer.disconnect(); // Temporarily disconnect observer
     numOfAds = await loadAd(userData); // Load ads
+    observer.observe(targetNode, config); // Reconnect observer
 
-    // Get website by URL
     const websiteUrl = new URL(window.location.href).origin;
     const website = await getWebsiteByURL(websiteUrl);
     if (website) {
       const websiteId = website.id;
       const profile_id = website.profile_id;
       const date = new Date().toISOString().split("T")[0];
-      // Check if website statistics already exists for today
-      const websiteStatistics =
-        await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
+      const websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
       if (websiteStatistics) {
-        // Update existing website statistics
         websiteStatistics.page_views += 1;
         if (numOfAds > 0) {
           websiteStatistics.ad_delivered += numOfAds;
         }
         await updateWebsiteStatistics(websiteStatistics);
       } else {
-        // Create new website statistics if it doesn't exist
         const newWebsiteStatistics = {
           id: null,
           website_id: websiteId,
@@ -158,35 +179,35 @@ function getAdHtml(ad) {
     return `<a href="${ad.url}">${ad.title}</a>`;
   } else if (ad.ad_format === "video") {
     return `
-        <div>
-          <video width="100%" height="100%" controls>
-            <source src="${ad.data}" type="video/mp4">
-            Your browser does not support the video tag.
-          </video>
-          <a href="${ad.url}">Learn more</a>
-        </div>
-      `;
+<div>
+<video width="100%" height="100%" controls>
+  <source src="${ad.data}" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+<a href="${ad.url}">Learn more</a>
+</div>
+`;
   } else if (ad.ad_format === "popup") {
     return `
-        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
-          <div style="background-color: #fff; padding: 20px; border: 1px solid #ddd;">
-            <h2>${ad.title}</h2>
-            <p>${ad.description}</p>
-            <a href="${ad.url}">Learn more</a>
-            <button onclick="this.parentNode.parentNode.removeChild(this.parentNode);">Close</button>
-          </div>
-        </div>
-      `;
+<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
+<div style="background-color: #fff; padding: 20px; border: 1px solid #ddd;">
+  <h2>${ad.title}</h2>
+  <p>${ad.description}</p>
+  <a href="${ad.url}">Learn more</a>
+  <button onclick="this.parentNode.parentNode.removeChild(this.parentNode);">Close</button>
+</div>
+</div>
+`;
   } else if (ad.ad_format === "rich_media") {
     return `
-        <div>
-          <div style="background-image: url(${ad.data}); background-size: cover; height: 300px; width: 300px;">
-            <h2>${ad.title}</h2>
-            <p>${ad.description}</p>
-            <a href="${ad.url}">Learn more</a>
-          </div>
-        </div>
-      `;
+<div>
+<div style="background-image: url(${ad.data}); background-size: cover; height: 300px; width: 300px;">
+  <h2>${ad.title}</h2>
+  <p>${ad.description}</p>
+  <a href="${ad.url}">Learn more</a>
+</div>
+</div>
+`;
   } else {
     return `<p>Unknown ad format: ${ad.ad_format}</p>`;
   }
@@ -194,7 +215,7 @@ function getAdHtml(ad) {
 
 function attachAdClickListener(adContainer, adData) {
   adContainer.addEventListener("click", function (event) {
-    var adClickData = {
+    let adClickData = {
       eventType: "adClick",
       ad: adData,
       clickedElement: event.target.tagName,
@@ -209,7 +230,6 @@ function sendAdClickData(adClickData) {
   getWebsiteByURL(currentUrl).then((website) => {
     if (website) {
       adClickData.website_id = website.id;
-      // Send the ad click data to the server
       fetch(adServerUrl + "/ad-click", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -306,19 +326,34 @@ async function saveWebsiteStatistics(websiteStatistics) {
   }
 }
 
+const targetNode = document.body;
+const config = { attributes: true, childList: true, subtree: true };
+
+const callback = function (mutationsList, observer) {
+  for (let mutation of mutationsList) {
+    if (mutation.type === 'childList') {
+      console.log('A child node has been added or removed.');
+      collectAndLoadAd();
+    } else if (mutation.type === 'attributes') {
+      console.log('The ' + mutation.attributeName + ' attribute was modified.');
+    }
+  }
+};
+
+const observer = new MutationObserver(callback);
+
+function observeDOMChanges() {
+  observer.observe(targetNode, config);
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", collectAndLoadAd);
+  document.addEventListener("DOMContentLoaded", () => {
+    observeDOMChanges();
+    collectAndLoadAd();
+  });
 } else {
+  observeDOMChanges();
   collectAndLoadAd();
 }
 
-window.addEventListener("beforeunload", function () {
-  if (scriptExecuted) {
-    // Clean up resources and abort requests
-    xhr.abort();
-    // Remove event listeners
-    document.removeEventListener("DOMContentLoaded", collectAndLoadAd);
-    adContainer.removeEventListener("click", attachAdClickListener);
-  }
-});
 })();
