@@ -3,9 +3,12 @@ var script = document.currentScript;
 var adServerUrl = "http://127.0.0.1:5000";
 var adContainerId = script.getAttribute('data-ad-container-id');
 var hash = script.getAttribute('data-hash');
-const CACHE_KEY = 'cachedAds';
-const CACHE_TIMESTAMP_KEY = 'cachedAdsTimestamp';
+const CACHE_KEY = "cachedAds";
+const CACHE_TIMESTAMP_KEY = "cachedAdsTimestamp";
 const CACHE_EXPIRATION_MS = 3600000; // 1 hour
+const WEBSITE_CACHE_KEY = "cachedWebsite";
+const WEBSITE_CACHE_TIMESTAMP_KEY = "cachedWebsiteTimestamp";
+const WEBSITE_CACHE_EXPIRATION_MS = 3600000; // 1 hour
 
 function getBrowserInfo() {
   return {
@@ -62,11 +65,42 @@ function setCachedAds(ads) {
   localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now());
 }
 
+function getCachedWebsite() {
+  const cachedWebsite = localStorage.getItem(WEBSITE_CACHE_KEY);
+  const cacheTimestamp = localStorage.getItem(
+    WEBSITE_CACHE_TIMESTAMP_KEY
+  );
+  if (cachedWebsite && cacheTimestamp) {
+    const now = Date.now();
+    const cacheAge = now - cacheTimestamp;
+    if (cacheAge < WEBSITE_CACHE_EXPIRATION_MS) {
+      return JSON.parse(cachedWebsite);
+    }
+  }
+  return null;
+}
+
+function setCachedWebsite(website) {
+  localStorage.setItem(WEBSITE_CACHE_KEY, JSON.stringify(website));
+  localStorage.setItem(WEBSITE_CACHE_TIMESTAMP_KEY, Date.now());
+}
+
 async function loadAd(userData) {
   let adContainers = document.querySelectorAll("[data-ad-container]");
   if (adContainers.length > 0) {
-    const currentUrl = new URL(window.location.href).origin;
-    const website = await getWebsiteByURL(currentUrl);
+    let website = getCachedWebsite(); // Get cached website
+    
+    if (!website) {
+      const currentUrl = new URL(window.location.href).origin;
+      website = await getWebsiteByURL(currentUrl);
+      if (website) {
+        setCachedWebsite(website); // Cache the website
+      } else {
+        console.error("Website not found");
+        return;
+      }
+    }
+    
     if (website) {
       let adData = getCachedAds();
       if (!adData) {
@@ -109,7 +143,9 @@ async function loadAd(userData) {
               );
               const result = await response.json();
               if (result.error) {
-                console.error(`Error updating ad metrics: ${result.error}`);
+                console.error(
+                  `Error updating ad metrics: ${result.error}`
+                );
               }
             } catch (error) {
               console.error("Failed to update ad metrics:", error);
@@ -126,6 +162,9 @@ async function loadAd(userData) {
 }
 
 async function collectAndLoadAd() {
+  if (isCollectingAds) return; // Prevent re-entry if already running
+  isCollectingAds = true; // Set the flag
+
   let browserInfo = getBrowserInfo();
   let numOfAds;
 
@@ -140,35 +179,46 @@ async function collectAndLoadAd() {
     numOfAds = await loadAd(userData); // Load ads
     observer.observe(targetNode, config); // Reconnect observer
 
-    const websiteUrl = new URL(window.location.href).origin;
-    const website = await getWebsiteByURL(websiteUrl);
-    if (website) {
-      const websiteId = website.id;
-      const profile_id = website.profile_id;
-      const date = new Date().toISOString().split("T")[0];
-      const websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
-      if (websiteStatistics) {
-        websiteStatistics.page_views += 1;
-        if (numOfAds > 0) {
-          websiteStatistics.ad_delivered += numOfAds;
-        }
-        await updateWebsiteStatistics(websiteStatistics);
+    let website = getCachedWebsite(); // Get cached website
+    
+    if (!website) {
+      const websiteUrl = new URL(window.location.href).origin;
+      website = await getWebsiteByURL(websiteUrl);
+      if (website) {
+        setCachedWebsite(website); // Cache the website
       } else {
-        const newWebsiteStatistics = {
-          id: null,
-          website_id: websiteId,
-          profile_id: profile_id,
-          date: date,
-          page_views: 1,
-          ad_clicks: 0,
-          ad_delivered: 0,
-          bounce_rate: 0.0,
-        };
-        await saveWebsiteStatistics(newWebsiteStatistics);
+        console.error("Website not found");
+        isCollectingAds = false; // Reset the flag after completion
+        return;
       }
-    } else {
-      console.error("Website not found");
     }
+
+    const websiteId = website.id;
+    const profile_id = website.profile_id;
+    const date = new Date().toISOString().split("T")[0];
+    const websiteStatistics =
+      await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
+    if (websiteStatistics) {
+      websiteStatistics.page_views += 1;
+      if (numOfAds > 0) {
+        websiteStatistics.ad_delivered += numOfAds;
+      }
+      await updateWebsiteStatistics(websiteStatistics);
+    } else {
+      const newWebsiteStatistics = {
+        id: null,
+        website_id: websiteId,
+        profile_id: profile_id,
+        date: date,
+        page_views: 1,
+        ad_clicks: 0,
+        ad_delivered: 0,
+        bounce_rate: 0.0,
+      };
+      await saveWebsiteStatistics(newWebsiteStatistics);
+    }
+
+    isCollectingAds = false; // Reset the flag after completion
   });
 }
 
@@ -181,8 +231,8 @@ function getAdHtml(ad) {
     return `
 <div>
 <video width="100%" height="100%" controls>
-  <source src="${ad.data}" type="video/mp4">
-  Your browser does not support the video tag.
+<source src="${ad.data}" type="video/mp4">
+Your browser does not support the video tag.
 </video>
 <a href="${ad.url}">Learn more</a>
 </div>
@@ -191,10 +241,10 @@ function getAdHtml(ad) {
     return `
 <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;">
 <div style="background-color: #fff; padding: 20px; border: 1px solid #ddd;">
-  <h2>${ad.title}</h2>
-  <p>${ad.description}</p>
-  <a href="${ad.url}">Learn more</a>
-  <button onclick="this.parentNode.parentNode.removeChild(this.parentNode);">Close</button>
+<h2>${ad.title}</h2>
+<p>${ad.description}</p>
+<a href="${ad.url}">Learn more</a>
+<button onclick="this.parentNode.parentNode.removeChild(this.parentNode);">Close</button>
 </div>
 </div>
 `;
@@ -202,9 +252,9 @@ function getAdHtml(ad) {
     return `
 <div>
 <div style="background-image: url(${ad.data}); background-size: cover; height: 300px; width: 300px;">
-  <h2>${ad.title}</h2>
-  <p>${ad.description}</p>
-  <a href="${ad.url}">Learn more</a>
+<h2>${ad.title}</h2>
+<p>${ad.description}</p>
+<a href="${ad.url}">Learn more</a>
 </div>
 </div>
 `;
@@ -331,11 +381,13 @@ const config = { attributes: true, childList: true, subtree: true };
 
 const callback = function (mutationsList, observer) {
   for (let mutation of mutationsList) {
-    if (mutation.type === 'childList') {
-      console.log('A child node has been added or removed.');
+    if (mutation.type === "childList") {
+      console.log("A child node has been added or removed.");
       collectAndLoadAd();
-    } else if (mutation.type === 'attributes') {
-      console.log('The ' + mutation.attributeName + ' attribute was modified.');
+    } else if (mutation.type === "attributes") {
+      console.log(
+        "The " + mutation.attributeName + " attribute was modified."
+      );
     }
   }
 };
@@ -355,5 +407,4 @@ if (document.readyState === "loading") {
   observeDOMChanges();
   collectAndLoadAd();
 }
-
 })();
