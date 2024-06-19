@@ -3,13 +3,13 @@ let script = document.currentScript;
 let adServerUrl = "http://127.0.0.1:5000";
 let adContainerId = script.getAttribute('data-ad-container-id');
 let hash = script.getAttribute('data-hash');
+let isCollectingAds = false;
 const CACHE_KEY = "cachedAds";
 const CACHE_TIMESTAMP_KEY = "cachedAdsTimestamp";
 const CACHE_EXPIRATION_MS = 3600000; // 1 hour
 const WEBSITE_CACHE_KEY = "cachedWebsite";
 const WEBSITE_CACHE_TIMESTAMP_KEY = "cachedWebsiteTimestamp";
 const WEBSITE_CACHE_EXPIRATION_MS = 3600000; // 1 hour
-let isCollectingAds = false;
 
 
 function getBrowserInfo() {
