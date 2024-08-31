@@ -119,16 +119,19 @@ async function loadAd(userData) {
         }
       }
       if (adData) {
+        // console.log('adData', adData);
         let numberOfAdsLoaded = 0;
-        for (let i = 0; i < adContainers.length; i++) {
-          let ad = adData[i];
+        for (let i = 0, iCached = 0; i < adContainers.length; i++, iCached++) {
+          let ad = adData[iCached];
           const adContainer = adContainers[i];
           if (adContainer) {
             if (!ad) {
-              ad = adData[i - 1];
+              iCached = 0
+              ad = adData[iCached];
             }
             const html_ad = getAdHtml(ad);
             adContainer.innerHTML = html_ad;
+            // console.log('AD:', ad)
             ad.adId = ad.id;
             numberOfAdsLoaded++;
             try {
