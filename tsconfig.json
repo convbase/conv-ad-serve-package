@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES5",               // Define o target do JavaScript compilado
+    "module": "ESNext",            // Define o módulo de saída
+    "strict": true,                // Ativa verificações de tipo estritas
+    "esModuleInterop": true,       // Facilita a importação de módulos comuns do Node.js
+    "forceConsistentCasingInFileNames": true, // Exige consistência nos nomes de arquivos
+    "skipLibCheck": true,          // Ignora checagem de tipos em arquivos de declaração
+    "declaration": true,           // Gera arquivos de definição `.d.ts`
+    "outDir": "./dist",            // Diretório de saída para os arquivos compilados
+    "sourceMap": true              // Gera arquivos de source map para debug
+  },
+  "include": ["src/**/*"],         // Inclui todos os arquivos TypeScript no diretório src
+  "exclude": ["node_modules", "dist"] // Exclui os diretórios de build e dependências
+}
