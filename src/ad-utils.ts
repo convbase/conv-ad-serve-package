@@ -21,22 +21,27 @@ export function renderAdDisplayByType(adType: string, ad: Advertisement){
   const content = setAdContentByFormat(ad);
   
   switch (adType) {
-    case 'classic-banner':
+    case 'classic_banners':
       return `
         <div class="ad-classic-banner">
           ${content}
         </div>`;
-    case 'pop-under':
+    case 'native_ads':
+      return `
+        <div class="native-ads">
+          ${content}
+        </div>`;
+    case 'pop_under':
       return `
         <div class="ad-pop-under">
           ${content}
         </div>`;
-    case 'header-banner':
+    case 'header_banner':
       return `
         <div style="position: fixed; top: 0; width: 100%; max-height: 10vh; height: 10vh; z-index: 1000; background-color: currentcolor;">
           ${content}
         </div>`;
-    case 'footer-banner':
+    case 'sticky_banner':
       return `
         <div style="position:fixed; bottom:0; width:100%; max-height: 10vh; height: 10vh; background-color: currentcolor;">
           ${content}
