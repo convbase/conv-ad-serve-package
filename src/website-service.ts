@@ -31,7 +31,7 @@ export async function getWebsiteStatisticsByWebsiteIdAndDate(websiteId: number, 
       websiteId
     )}&date=${encodeURIComponent(date)}`,
     {
-      method: "GET",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
     }
   );
@@ -51,7 +51,7 @@ export async function updateWebsiteStatistics(websiteStatistics: WebsiteStatisti
   const response = await fetch(
     adServerUrl + "/update-website-statistics",
     {
-      method: "PUT",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(websiteStatistics),
     }
