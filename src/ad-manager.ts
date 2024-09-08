@@ -1,16 +1,17 @@
 // adManager.js
 
-import { getAdHtml, attachAdClickListener } from "./ad-utils";
+import { getAdHtml, attachAdClickListener, renderAdDisplayByType } from "./ad-utils";
 import { getCachedAds, getCachedWebsite, setCachedAds, setCachedWebsite } from "./cache";
 import { adServerUrl, getHash, hash, isCollectingAds, script, setIsCollectingAds } from "./config";
+import { Advertisement } from "./models/advertisement";
 import { getBrowserInfo, getISOCode } from "./utils";
 import { getWebsiteByURL, getWebsiteStatisticsByWebsiteIdAndDate, saveWebsiteStatistics, updateWebsiteStatistics } from "./website-service";
 
-const callback = function (mutationsList: any) {
+const callback = async function (mutationsList: any) {
   for (let mutation of mutationsList) {
     if (mutation.type === "childList") {
       console.log("A child node has been added or removed.");
-      collectAndLoadAd();
+      await collectAndLoadAd();
     } else if (mutation.type === "attributes") {
       console.log(
         "The " + mutation.attributeName + " attribute was modified."
@@ -56,14 +57,14 @@ export async function loadAd(userData: any) {
       if (adData) {
         let numberOfAdsLoaded = 0;
         for (let i = 0, iCached = 0; i < adContainers.length; i++, iCached++) {
-          let ad = adData[iCached];
+          let ad: Advertisement = adData[iCached];
           const adContainer = adContainers[i];
           if (adContainer) {
             if (!ad) {
               iCached = 0;
               ad = adData[iCached];
             }
-            const html_ad = getAdHtml(ad);
+            const html_ad = renderAdDisplayByType(ad.ad_type, ad);
             adContainer.innerHTML = html_ad;
             numberOfAdsLoaded++;
             try {
@@ -135,8 +136,8 @@ export async function collectAndLoadAd() {
     const websiteId = website.id;
     const profile_id = website.profile_id;
     const date = new Date().toISOString().split("T")[0];
-    const websiteStatistics =
-      await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
+    const websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
+
     if (websiteStatistics) {
       websiteStatistics.page_views += 1;
       if (numOfAds && numOfAds > 0) {

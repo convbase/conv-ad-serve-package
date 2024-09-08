@@ -35,14 +35,15 @@ export async function getWebsiteStatisticsByWebsiteIdAndDate(websiteId: number, 
       headers: { "Content-Type": "application/json" },
     }
   );
+
+  // Processando o corpo da resposta como JSON
   if (response.ok) {
-    const result = await response.json();
-    return result.data;
+    const data = await response.json();
+    // console.log('RESPONSE DATA:', data);
+    return data; // Retornando os dados
   } else {
-    console.error(
-      "Failed to fetch website statistics by website ID and date"
-    );
-    return null;
+    console.error('Error fetching data:', response.statusText);
+    throw new Error(response.statusText); // Lançando um erro se a resposta não for ok
   }
 }
 
