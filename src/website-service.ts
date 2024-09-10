@@ -31,7 +31,7 @@ export async function getWebsiteStatisticsByWebsiteIdAndDate(websiteId: number, 
       websiteId
     )}&date=${encodeURIComponent(date)}`,
     {
-      method: "POST",
+      method: "GET",
       headers: { "Content-Type": "application/json" },
     }
   );

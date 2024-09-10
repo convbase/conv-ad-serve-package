@@ -136,15 +136,15 @@ export async function collectAndLoadAd() {
     const websiteId = website.id;
     const profile_id = website.profile_id;
     const date = new Date().toISOString().split("T")[0];
-    const websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
-
-    if (websiteStatistics) {
+    
+    try {
+      let websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
       websiteStatistics.page_views += 1;
-      if (numOfAds && numOfAds > 0) {
+      if (numOfAds && numOfAds > 0) { // TODO fix counter of delivered ads
         websiteStatistics.ad_delivered += numOfAds;
       }
       await updateWebsiteStatistics(websiteStatistics);
-    } else {
+    } catch (error) {
       const newWebsiteStatistics: any = {
         id: null,
         website_id: websiteId,
