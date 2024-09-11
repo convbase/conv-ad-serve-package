@@ -51,13 +51,17 @@ export async function updateWebsiteStatistics(websiteStatistics: WebsiteStatisti
   const response = await fetch(
     adServerUrl + "/update-website-statistics",
     {
-      method: "POST",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(websiteStatistics),
     }
   );
+
   if (!response.ok) {
-    console.error("Failed to update website statistics");
+    console.error('Error updating data:', response.statusText); // Mensagem de erro se a resposta não for ok
+    throw new Error(response.statusText); // Lança o erro
+  } else {
+    console.log("Website statistics updated successfully");
   }
 }
 
