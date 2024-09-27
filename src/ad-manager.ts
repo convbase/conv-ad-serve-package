@@ -1,8 +1,6 @@
-// adManager.js
-
-import { getAdHtml, attachAdClickListener, renderAdDisplayByType } from "./ad-utils";
+import { attachAdClickListener, renderAdDisplayByType } from "./ad-utils";
 import { getCachedAds, getCachedWebsite, setCachedAds, setCachedWebsite } from "./cache";
-import { adServerUrl, getHash, hash, isCollectingAds, script, setIsCollectingAds } from "./config";
+import { adServerUrl, getHash, hash, isCollectingAds, setIsCollectingAds } from "./config";
 import { Advertisement } from "./models/advertisement";
 import { getBrowserInfo, getISOCode } from "./utils";
 import { getWebsiteByURL, getWebsiteStatisticsByWebsiteIdAndDate, saveWebsiteStatistics, updateWebsiteStatistics } from "./website-service";
