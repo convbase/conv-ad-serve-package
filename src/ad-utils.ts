@@ -14,32 +14,38 @@ export function renderAdDisplayByType(adType: string, ad: Advertisement){
         <div class="ad-classic-banner">
           ${content}
         </div>`;
+      
     case 'native_ads':
       return `
         <div class="native-ads">
           ${content}
         </div>`;
+
     case 'pop_under':
-      return `
-        <div class="ad-pop-under">
-          ${content}
-        </div>`;
+      createPopup(content);
+      return ''; // TODO Remover retorno (Pop Up e Header/Footer terão componente próprio e serão habilitados sem precisar configurar divs)
     case 'header_banner':
       return `
         <div style="position: fixed; top: 0; width: 100%; max-height: 90px; height: 90px; 
           z-index: 1000; display: flex; justify-content: center; align-items: start;
           background-color: ${contrastColors.backgroundColor}; color: ${contrastColors.color}"
         >
-          ${content}
+        <a href="${ad.url}" target="_blank" style="display: inline-block;">
+          <img src="${ad.data}" style="margin: auto; max-height: 90px; object-fit: contain;" alt="${ad.title}">
+        </a>
         </div>`;
+
     case 'sticky_banner':
       return `
         <div style="position: fixed; bottom:0; width:100%; max-height: 90px; height: 90px; 
           z-index: 1000; display: flex; justify-content: center; align-items: end; 
           background-color: ${contrastColors.backgroundColor}; color: ${contrastColors.color}"
         >
-          ${content}
+          <a href="${ad.url}" target="_blank" style="display: inline-block;">
+            <img src="${ad.data}" style="margin: auto; max-height: 90px; object-fit: contain;" alt="${ad.title}">
+          </a>
         </div>`;
+
     default:
       return `<div class="ad-classic-banner"> ${content} </div>`;
   }
@@ -55,6 +61,70 @@ export function setAdContentByFormat(ad: Advertisement) { // TODO implement VIDE
     return `<video controls style="width: 100%; height: 100%; object-fit: contain;"><source src="${ad.data}" type="video/mp4">Your browser does not support the video tag.</video>`;
   }
   return ``;
+}
+
+function createPopup(content: any) {
+  const existingOverlay = document.getElementById('convbase-overlay');
+  if (existingOverlay) {
+    console.log('Já existe um popup ativo. Cancelando a criação de um novo.');
+    return; // Cancelar a função se o overlay já existir
+  }
+
+  // Criar a camada de fundo (overlay)
+  const overlay = document.createElement('div');
+  overlay.id = 'convbase-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; // Fundo semitransparente
+  overlay.style.zIndex = '8000'; // Z-index menor que o popup
+
+  // Criar o container do popup
+  const popupContainer = document.createElement('div');
+  popupContainer.id = 'convbase-popup';
+  popupContainer.style.position = 'fixed';
+  popupContainer.style.top = '50%';
+  popupContainer.style.left = '50%';
+  popupContainer.style.transform = 'translate(-50%, -50%)';
+  popupContainer.style.zIndex = '8000';
+  popupContainer.style.backgroundColor = '#fff';
+  popupContainer.style.padding = '1.5em';
+  popupContainer.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+  popupContainer.style.borderRadius = '8px';
+
+  // Criar o conteúdo do popup
+  const popupContent = document.createElement('div');
+  popupContent.innerHTML = content;
+  
+  // Criar o botão de fechar
+  const closeButton = document.createElement('button');
+  closeButton.innerHTML = 'X';
+  closeButton.style.position = 'absolute';
+  closeButton.style.top = '5px';
+  closeButton.style.right = '10px';
+  closeButton.style.color = '#aaa';
+  closeButton.style.fontSize = '16px';
+  closeButton.style.fontWeight = 'bold';
+
+  // Função para fechar o popup e a camada de fundo
+  closeButton.onclick = () => {
+    overlay.hidden = true;
+
+    // Intervalo para Pop-Up aparecer novamente
+    setTimeout(() => {
+      overlay.hidden = false;
+    }, 30000);
+  };
+
+  // Adicionar o conteúdo e o botão ao container do popup
+  popupContainer.appendChild(popupContent);
+  popupContainer.appendChild(closeButton);
+  overlay.appendChild(popupContainer);
+
+  // Adicionar a camada de fundo e o popup ao body do documento
+  document.body.appendChild(overlay);
 }
 
 function setContrastingColors() {
@@ -86,36 +156,38 @@ function checkBackgroundDark(color: string): boolean {
 export function attachAdClickListener(adContainer: Element, ad: Advertisement) {
   // TODO poder aceitar mais que um link, pois vários produtos poderão ser exibidos
   const adLink = adContainer.getElementsByTagName('a')[0];
-  adLink.addEventListener("click", async (event) => {
-    let website = getCachedWebsite(); // Obtenha o website armazenado em cache
-    if (!website) {
-      const currentUrl = new URL(window.location.href).origin;
-      website = await getWebsiteByURL(currentUrl);
-      if (website) {
-        setCachedWebsite(website); // Armazene o website em cache
-      } else {
-        console.error("Website not found");
-        return;
-      }
-    }
-    try {
-      const response = await fetch(
-        adServerUrl + "/ad-click",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ad: ad,
-            website_id: website.id,
-          }),
+  if(adLink){
+    adLink.addEventListener("click", async (event) => {
+      let website = getCachedWebsite(); // Obtenha o website armazenado em cache
+      if (!website) {
+        const currentUrl = new URL(window.location.href).origin;
+        website = await getWebsiteByURL(currentUrl);
+        if (website) {
+          setCachedWebsite(website); // Armazene o website em cache
+        } else {
+          console.error("Website not found");
+          return;
         }
-      );
-      const result = await response.json();
-      if (result.error) {
-        console.error(`Error updating ad metrics: ${result.error}`);
       }
-    } catch (error) {
-      console.error("Failed to update ad metrics:", error);
-    }
-  });
+      try {
+        const response = await fetch(
+          adServerUrl + "/ad-click",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ad: ad,
+              website_id: website.id,
+            }),
+          }
+        );
+        const result = await response.json();
+        if (result.error) {
+          console.error(`Error updating ad metrics: ${result.error}`);
+        }
+      } catch (error) {
+        console.error("Failed to update ad metrics:", error);
+      }
+    });
+  }
 }
