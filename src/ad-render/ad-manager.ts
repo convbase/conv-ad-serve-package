@@ -1,9 +1,9 @@
-import { attachAdClickListener, renderAdDisplayByType } from "./ad-utils";
-import { getCachedAds, getCachedWebsite, setCachedAds, setCachedWebsite } from "./cache";
-import { adServerUrl, getHash, hash, isCollectingAds, setIsCollectingAds } from "./config";
-import { Advertisement } from "./models/advertisement";
-import { getBrowserInfo, getISOCode } from "./utils";
-import { getWebsiteByURL, getWebsiteStatisticsByWebsiteIdAndDate, saveWebsiteStatistics, updateWebsiteStatistics } from "./website-service";
+import { getCachedAds, getCachedWebsite, setCachedAds, setCachedWebsite } from "../cache";
+import { adServerUrl, getHash, hash, isCollectingAds, setIsCollectingAds } from "../config";
+import { Advertisement } from "../models/advertisement";
+import { getBrowserInfo, getISOCode } from "../utils";
+import { getWebsiteByURL, getWebsiteStatisticsByWebsiteIdAndDate, saveWebsiteStatistics, updateWebsiteStatistics } from "../website-service";
+import { renderAdDisplayByType, attachAdClickListener } from "./ad-utils";
 
 const callback = async function (mutationsList: any) {
   for (let mutation of mutationsList) {
