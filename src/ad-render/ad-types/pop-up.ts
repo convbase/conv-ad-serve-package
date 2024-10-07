@@ -1,4 +1,7 @@
-export function createPopup(content: any) {
+import { Advertisement } from "../../models/advertisement";
+import { attachAdClickListener, setContrastingColors } from "../ad-utils";
+
+export function createPopup(ad: Advertisement) {
     const existingOverlay = document.getElementById('convbase-overlay');
     if (existingOverlay) {
       console.log('Já existe um popup ativo. Cancelando a criação de um novo.');
@@ -20,14 +23,16 @@ export function createPopup(content: any) {
     const popupContainer = document.createElement('div');
     popupContainer.id = 'convbase-popup';
     popupContainer.style.position = 'fixed';
+    popupContainer.style.maxWidth = '80%';
+    popupContainer.style.maxHeight = '75%';
     popupContainer.style.top = '50%';
     popupContainer.style.left = '50%';
     popupContainer.style.transform = 'translate(-50%, -50%)';
     popupContainer.style.zIndex = '8000';
-    popupContainer.style.backgroundColor = '#fff';
     popupContainer.style.padding = '0 1.5em 1.5em';
     popupContainer.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
     popupContainer.style.borderRadius = '8px';
+    setContrastingColors(popupContainer);
   
     // Criar o botão de fechar
     const headerPopUp = document.createElement('div');
@@ -35,6 +40,7 @@ export function createPopup(content: any) {
     headerPopUp.style.display = 'table';
     headerPopUp.style.height = '24px';
     headerPopUp.style.backgroundColor = '#fff';
+    setContrastingColors(headerPopUp);
 
     const closeButton = document.createElement('button');
     closeButton.innerHTML = 'X';
@@ -46,14 +52,14 @@ export function createPopup(content: any) {
 
     // Criar o conteúdo do popup
     const popupContent = document.createElement('div');
-    popupContent.innerHTML = content;
+    popupContent.innerHTML = createContentPopup(ad);
     
   
     // Função para fechar o popup e a camada de fundo
     closeButton.onclick = () => {
       overlay.hidden = true;
   
-      // Intervalo para Pop-Up aparecer novamente
+      // Intervalo para aparecer novamente
       setTimeout(() => {
         overlay.hidden = false;
       }, 30000);
@@ -67,4 +73,37 @@ export function createPopup(content: any) {
   
     // Adicionar a camada de fundo e o popup ao body do documento
     document.body.appendChild(overlay);
+
+    addPopupListeners(popupContainer, ad);
+}
+
+/** Cria o conteúdo exclusivo para os Ads do tipo Fixed */
+function createContentPopup(ad: Advertisement){
+  if (ad.ad_format === "image") {
+    return `<a href="${ad.url}" target="_blank" style="display: contents;">
+    <img src="${ad.data}" style="margin: auto; height: 100%; object-fit: contain;"
+     alt="${ad.title}">
+    </a>`;
+  } else if (ad.ad_format === "rich_media") {
+    return `<a href="${ad.url}" target="_blank" style="display: contents; padding: 10px; 
+      text-decoration: none; color: black; border: 1px solid #ccc; border-radius: 5px;">
+      <h3>${ad.title}</h3><p>${ad.data}</p>
+    </a>`;
+  } else if (ad.ad_format === "video") {
+    return `<video controls style="width: 100%; height: 100%; object-fit: contain;">
+      <source src="${ad.data}" type="video/mp4">Your browser does not support the video tag.
+    </video>`;
+  }
+  return '';
+
+  // Caso não encontre padrão, retorna estilo <iframe> 
+  // return `<iframe style="margin: auto; width: 100%; height: 100%; 
+  //   background: url(${ad.data}) no-repeat center center"
+  //   onclick="window.open(${ad.url}, '_blank')"
+  // ></iframe>`
+}
+
+/** Adiciona todos os Listeners para o Ad Popup, sendo exclusivos para o tipo ou não */
+function addPopupListeners(popupContainer: HTMLElement, ad: Advertisement){
+  attachAdClickListener(popupContainer, ad);
 }

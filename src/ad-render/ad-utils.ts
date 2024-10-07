@@ -2,62 +2,43 @@ import { getCachedWebsite, setCachedWebsite } from "../cache";
 import { adServerUrl } from "../config";
 import { Advertisement } from "../models/advertisement";
 import { getWebsiteByURL } from "../website-service";
-import { createFixedAd } from "./fixed-ad";
-import { createPopup } from "./pop-up";
+import { createClassicAd } from "./ad-types/classic-ad";
+import { createFixedAd } from "./ad-types/fixed-ad";
+import { createPopup } from "./ad-types/pop-up";
 
 /** Renders a specific `<div>` for each Ad Type */
 export function renderAdDisplayByType(adType: string, ad: Advertisement){
-  const content = setAdContentByFormat(ad);
-  const contrastColors = setContrastingColors();
-  
   switch (adType) {
     case 'classic_banners':
-      return `
-        <div class="ad-classic-banner">
-          ${content}
-        </div>`;
-      
-    case 'native_ads':
-      return `
-        <div class="native-ads">
-          ${content}
-        </div>`;
-
+      return createClassicAd(ad);
     case 'pop_under':
-      createPopup(content);
-      return ''; // TODO Remover retorno (Pop Up e Header/Footer terão componente próprio e serão habilitados sem precisar configurar divs)
+      createPopup(ad);
+    return ''; // TODO Remover retorno (Pop Up e Header/Footer terão componente próprio e serão habilitados sem precisar configurar divs)
     case 'header_banner':
-      createFixedAd('top', content);
-      return '';
+      createFixedAd('top', ad);
+    return '';
     case 'sticky_banner':
-      createFixedAd('bottom', content);
-      return '';
+      createFixedAd('bottom', ad);
+    return '';
+    // case 'native_ads': // TODO Anúncios que se adaptem automaticamente ao estilo do site 
+    //   createNativeAd(ad);
+    //   return '';
     default:
-      return `<div class="ad-classic-banner"> ${content} </div>`;
+      return createClassicAd(ad);
   }
 }
 
-/** Defines the Ad Content according to the registered format */
-export function setAdContentByFormat(ad: Advertisement) { // TODO implement VIDEO and RICH-MEDIA formats
-  if (ad.ad_format === "image") {
-    return `<a href="${ad.url}" target="_blank" style="display: contents;"><img src="${ad.data}" style="margin: auto; height: 100%; object-fit: contain;" alt="${ad.title}"></a>`;
-  } else if (ad.ad_format === "rich_media") {
-    return `<a href="${ad.url}" target="_blank" style="display: contents; padding: 10px; text-decoration: none; color: black; border: 1px solid #ccc; border-radius: 5px;"><h3>${ad.title}</h3><p>${ad.data}</p></a>`;
-  } else if (ad.ad_format === "video") {
-    return `<video controls style="width: 100%; height: 100%; object-fit: contain;"><source src="${ad.data}" type="video/mp4">Your browser does not support the video tag.</video>`;
-  }
-  return ``;
-}
-
-function setContrastingColors() {
+export function setContrastingColors(element: HTMLElement) {
   const bodyBackground = getComputedStyle(document.body).backgroundColor;
   
   const darkBackground = checkBackgroundDark(bodyBackground);
   
   if (darkBackground) {
-    return {backgroundColor: '#f5f5f5', color: '#000000'};
+    element.style.color = '#000000'
+    element.style.backgroundColor = '#f5f5f5'
   } else {
-    return {backgroundColor: '#1c1c1c', color: '#FFFFFF'};
+    element.style.color = '#FFFFFF'
+    element.style.backgroundColor = '#1c1c1c'
   }
 }
 
@@ -73,6 +54,7 @@ function checkBackgroundDark(color: string): boolean {
   return luminance < 150; // If luminance is less than 150, consider it dark
 }
 
+/** Faz requisição para registrar o clique no Anúncio */
 export function attachAdClickListener(adContainer: Element, ad: Advertisement) {
   // TODO poder aceitar mais que um link, pois vários produtos poderão ser exibidos
   const adLink = adContainer.getElementsByTagName('a')[0];
