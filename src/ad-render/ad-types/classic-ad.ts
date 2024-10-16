@@ -1,8 +1,7 @@
 import { Advertisement } from "../../models/advertisement";
-import { setContrastingColors } from "../ad-utils";
 
 export function createClassicAd(ad: Advertisement){
-    return createClassicContent(ad);
+  return createClassicContent(ad);
 }
 
 /** Defines the Ad Content according to the registered format */

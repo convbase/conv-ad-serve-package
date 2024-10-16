@@ -1,7 +1,6 @@
 import { getCachedWebsite, setCachedWebsite } from "../cache";
-import { adServerUrl } from "../config";
 import { Advertisement } from "../models/advertisement";
-import { getWebsiteByURL } from "../website-service";
+import { adClick } from "../services/ad-service";
 import { createClassicAd } from "./ad-types/classic-ad";
 import { createFixedAd } from "./ad-types/fixed-ad";
 import { createPopup } from "./ad-types/pop-up";
@@ -28,6 +27,7 @@ export function renderAdDisplayByType(adType: string, ad: Advertisement){
   }
 }
 
+/** Receives an HTML element as a parameter and sets the font and background colors based on the detected contrast */
 export function setContrastingColors(element: HTMLElement) {
   const bodyBackground = getComputedStyle(document.body).backgroundColor;
   
@@ -42,6 +42,7 @@ export function setContrastingColors(element: HTMLElement) {
   }
 }
 
+/** Detects whether the website is dark or light */
 function checkBackgroundDark(color: string): boolean {
   const rgb = color.match(/\d+/g);
   if (!rgb) return false;
@@ -54,42 +55,15 @@ function checkBackgroundDark(color: string): boolean {
   return luminance < 150; // If luminance is less than 150, consider it dark
 }
 
-/** Faz requisição para registrar o clique no Anúncio */
+/** Implement a Listener for ad clicks */
 export function attachAdClickListener(adContainer: Element, ad: Advertisement) {
   // TODO poder aceitar mais que um link, pois vários produtos poderão ser exibidos
   const adLink = adContainer.getElementsByTagName('a')[0];
   if(adLink){
     adLink.addEventListener("click", async (event) => {
-      let website = getCachedWebsite(); // Obtenha o website armazenado em cache
-      if (!website) {
-        const currentUrl = new URL(window.location.href).origin;
-        website = await getWebsiteByURL(currentUrl);
-        if (website) {
-          setCachedWebsite(website); // Armazene o website em cache
-        } else {
-          console.error("Website not found");
-          return;
-        }
-      }
-      try {
-        const response = await fetch(
-          adServerUrl + "/ad-click",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ad: ad,
-              website_id: website.id,
-            }),
-          }
-        );
-        const result = await response.json();
-        if (result.error) {
-          console.error(`Error updating ad metrics: ${result.error}`);
-        }
-      } catch (error) {
-        console.error("Failed to update ad metrics:", error);
-      }
+      const website = await getCachedWebsite(); // Obtenha o website armazenado em cache
+
+      adClick(ad, website.id);
     });
   }
 }

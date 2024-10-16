@@ -1,15 +1,20 @@
-import { getCachedAds, getCachedWebsite, setCachedAds, setCachedWebsite } from "../cache";
-import { adServerUrl, getHash, hash, isCollectingAds, setIsCollectingAds } from "../config";
+import { getCachedAds, getCachedWebsite } from "../cache";
+import { hash } from "../config";
 import { Advertisement } from "../models/advertisement";
 import { getBrowserInfo, getISOCode } from "../utils";
-import { getWebsiteByURL, getWebsiteStatisticsByWebsiteIdAndDate, saveWebsiteStatistics, updateWebsiteStatistics } from "../website-service";
 import { renderAdDisplayByType, attachAdClickListener } from "./ad-utils";
+import { Website } from "../models/website";
+import { adImpression } from "../services/ad-service";
 
-const callback = async function (mutationsList: any) {
+/** Variable to prevent repeated GET of ads */
+var isCollectingAds: boolean = false;
+
+/** Function to detect DOM changes */
+const mutationObserver = async function (mutationsList: any) {
   for (let mutation of mutationsList) {
     if (mutation.type === "childList") {
       // console.log("A child node has been added or removed.");
-      await collectAndLoadAd();
+      await collectAndLoadAds();
     } else if (mutation.type === "attributes") {
       // console.log(
       //   "The " + mutation.attributeName + " attribute was modified."
@@ -17,93 +22,17 @@ const callback = async function (mutationsList: any) {
     }
   }
 };
-const observer = new MutationObserver(callback);
+
+const observer = new MutationObserver(mutationObserver);
 const targetNode = document.body;
 const config = { attributes: true, childList: true, subtree: true };
 
-export async function loadAd(userData: any) {
-  let adContainers = document.querySelectorAll("[data-ad-container]");
-  if (adContainers.length > 0) {
-    let website = getCachedWebsite(); // Get cached website
-    
-    if (!website) {
-      const currentUrl = new URL(window.location.href).origin;
-      website = await getWebsiteByURL(currentUrl);
-      if (website) {
-        setCachedWebsite(website); // Cache the website
-      } else {
-        console.error("Website not found");
-        return;
-      }
-    }
-    
-    if (website) {
-      let adData = getCachedAds();
-      if (!adData) {
-        try {
-          const response = await fetch(adServerUrl + "/get-ad", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(userData),
-          });
-          adData = await response.json();
-          setCachedAds(adData);
-        } catch (error) {
-          console.error("Failed to load ad:", error);
-        }
-      }
-      if (adData) {
-        let numberOfAdsLoaded = 0;
-        for (let i = 0, iCached = 0; i < adContainers.length; i++, iCached++) {
-          let ad: Advertisement = adData[iCached];
-          const adContainer = adContainers[i];
-          if (adContainer) {
-            if (!ad) {
-              iCached = 0;
-              ad = adData[iCached];
-            }
-            const html_ad = renderAdDisplayByType(ad.ad_type, ad);
-            adContainer.innerHTML = html_ad;
-            numberOfAdsLoaded++;
-            try {
-              const response = await fetch(
-                adServerUrl + "/ad-impression",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    advertisement_id: ad.id,
-                    website_id: website.id,
-                  }),
-                }
-              );
-              const result = await response.json();
-              if (result.error) {
-                console.error(
-                  `Error updating ad metrics: ${result.error}`
-                );
-              }
-            } catch (error) {
-              console.error("Failed to update ad metrics:", error);
-            }
-            attachAdClickListener(adContainer, ad);
-          } else {
-            console.error(`No ad container found at index ${i}`);
-          }
-        }
-        return numberOfAdsLoaded;
-      }
-    }
-  }
-}
-
-export async function collectAndLoadAd() {
-  // console.log('DOCUMENT',  document.getElementById('ConvbaseTag'))
+/** Collects website and user information and loads ads */
+export async function collectAndLoadAds() {
   if (isCollectingAds) return; // Prevent re-entry if already running
-  setIsCollectingAds(true); // Set the flag
+  isCollectingAds = true; // Set the flag
 
   let browserInfo = getBrowserInfo();
-  let numOfAds;
 
 
   getISOCode(async function (countryCode: string) {
@@ -114,48 +43,42 @@ export async function collectAndLoadAd() {
     };
 
     observer.disconnect(); // Temporarily disconnect observer
-    numOfAds = await loadAd(userData); // Load ads
+    await getCachedWebsite(); // Get cached website
+    await loadAds(userData); // Load ads
     observer.observe(targetNode, config); // Reconnect observer
 
-    let website = getCachedWebsite(); // Get cached website
-    
-    if (!website) {
-      const websiteUrl = new URL(window.location.href).origin;
-      website = await getWebsiteByURL(websiteUrl);
-      if (website) {
-        setCachedWebsite(website); // Cache the website
-      } else {
-        console.error("Website not found");
-        setIsCollectingAds(false); // Reset the flag after completion
-        return;
-      }
-    }
 
-    const websiteId = website.id;
-    const profile_id = website.profile_id;
-    const date = new Date().toISOString().split("T")[0];
-    
-    try {
-      let websiteStatistics = await getWebsiteStatisticsByWebsiteIdAndDate(websiteId, date);
-      websiteStatistics.page_views += 1;
-      if (numOfAds && numOfAds > 0) { // TODO fix counter of delivered ads
-        websiteStatistics.ad_delivered += numOfAds;
-      }
-      await updateWebsiteStatistics(websiteStatistics);
-    } catch (error) {
-      const newWebsiteStatistics: any = {
-        id: null,
-        website_id: websiteId,
-        profile_id: profile_id,
-        date: date,
-        page_views: 1,
-        ad_clicks: 0,
-        ad_delivered: 0,
-        bounce_rate: 0.0,
-      };
-      await saveWebsiteStatistics(newWebsiteStatistics);
-    }
-
-    setIsCollectingAds(false); // Reset the flag after completion
+    isCollectingAds = false; // Reset the flag after completion
   });
+}
+
+/** Loads ads based on site settings and available ad containers */
+export async function loadAds(userData: any) {
+  let adContainers = document.querySelectorAll("[data-ad-container]");
+
+  if (adContainers.length > 0) {
+    const website: Website = await getCachedWebsite(); // Get cached website
+    
+    const cachedAds = await getCachedAds(userData);
+
+    if(cachedAds) {
+      for (let i = 0, iCached = 0; i < adContainers.length; i++, iCached++) {
+        let ad: Advertisement = cachedAds[iCached];
+        const adContainer = adContainers[i];
+        if (adContainer) {
+          if (!ad) {
+            iCached = 0;
+            ad = cachedAds[iCached];
+          }
+
+          const adInnerHTML = renderAdDisplayByType(ad.ad_type, ad);
+          adContainer.innerHTML = adInnerHTML;
+          attachAdClickListener(adContainer, ad);
+          adImpression(ad.id, website.id);
+        } else {
+          console.error(`No ad container found at index ${i}`);
+        }
+      }
+    }
+  }
 }

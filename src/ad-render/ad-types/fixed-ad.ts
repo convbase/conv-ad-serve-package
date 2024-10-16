@@ -5,7 +5,7 @@ export function createFixedAd(position: 'top' | 'bottom', ad: Advertisement): vo
     const existingHeader = document.getElementById('convbase-header');
     const existingFooter = document.getElementById('convbase-footer');
     if ((existingHeader && position == 'top') || (existingFooter && position == 'bottom')){
-        console.log(`Já existe um AdFixed no ${position}. Cancelando a criação de um novo`);
+        // console.log(`Já existe um AdFixed no ${position}. Cancelando a criação de um novo`);
         return; // Cancelar a função se AdFixed já existir
     }
 
@@ -103,4 +103,4 @@ function createContentFixed(ad: Advertisement){
 /** Adiciona todos os Listeners para o Ad Fixed, sendo exclusivos para o tipo ou não */
 function addFixedListeners(fixedAd: HTMLElement, ad: Advertisement){
     attachAdClickListener(fixedAd, ad);
-  }
+}
